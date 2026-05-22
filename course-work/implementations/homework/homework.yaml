@@ -1,1 +1,515 @@
-<!doctype html><html lang="en"><head><title>SwaggerEditor</title><script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'<!-- Google Tag Manager -->l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-PFFSBW3');</script><link rel="preload" href="/static/media/splash-screen/loader.gif" as="image" type="image/gif"/><link rel="preload" href="/static/media/splash-screen/logo.svg" as="image" type="image/svg+xml"/><link rel="preload" href="/static/media/splash-screen/styles.css" as="style"/><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#000000"/><meta name="description" content="SwaggerEditor"/><meta http-equiv="Cache-control" content="no-cache, no-store, must-revalidate"/><link rel="icon" href="/favicon-32x32.png"/><link rel="apple-touch-icon" href="/favicon-32x32.png"/><link rel="stylesheet" href="/static/media/splash-screen/styles.css"/><link rel="manifest" href="/manifest.json"/><script>window.MonacoEnvironment={baseUrl:new URL("/static/js/",document.baseURI||location.href).toString()},window.monaco={a:"b"}</script><script defer="defer" src="/static/js/main.c374bb0c.js"></script><link href="/static/css/main.cd58c424.css" rel="stylesheet"></head><body><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PFFSBW3" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript><noscript>You need to enable JavaScript to run this app.</noscript><div id="swagger-editor"><div class="swagger-editor"><div class="swagger-editor__splash-screen"><figure class="swagger-editor__splash-screen-figure"><img width="100%" src="/static/media/splash-screen/logo.svg" alt="Swagger Editor"/><figcaption>5.4.1</figcaption><img width="25" height="25" class="swagger-editor__splash-screen-spinner" src="/static/media/splash-screen/loader.gif" alt="Loading..."/></figure></div></div></div></body></html>
+openapi: 3.0.3
+info:
+  title: Fitness Tracking & Subscription Management API
+  description: |-
+    API documentation for a web-based system for managing fitness workouts, personal progress and fitness subscriptions.
+    The system supports user management, weekly fitness plans, favorite exercises, weight tracking and subscription card management.
+
+    ---
+    **Course Work Details:**
+    * **Author:** Mesli Tatarova
+    * **FN:** 2401321038
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+
+paths:
+  # --- AUTHENTICATION & USERS ---
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user profile in the system after data validation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterInput'
+      responses:
+        '201':
+          description: User registered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input data or email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: User login
+      description: Generates a JWT access token after       receiving valid user credentials.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginInput'
+      responses:
+        '200':
+          description: Successful login. Returns a JWT token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid email or password.
+
+  /profile:
+    get:
+      summary: Get personal profile
+      description: Gets the profile information of the logged-in user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile data retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Invalid or missing access token.
+
+  # --- WORKOUT PLANS ---
+  /workout-plans:
+    get:
+      summary: List workout plans
+      description: Returns all created fitness plans for the user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Plans retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkoutPlanResponse'
+    post:
+      summary: Create a new workout plan
+      description: The user can define a new plan (e.g., for a specific day or week).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkoutPlanInput'
+      responses:
+        '201':
+          description: Plan created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutPlanResponse'
+        '400':
+          description: Plan validation error.
+
+  /workout-plans/{planId}:
+    put:
+      summary: Edit an existing plan
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          description: Identifier of the workout plan.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkoutPlanInput'
+      responses:
+        '200':
+          description: Plan updated successfully.
+        '404':
+          description: Plan not found.
+    delete:
+      summary: Delete a workout plan
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Plan deleted successfully.
+
+  # --- EXERCISES & FAVORITES ---
+  /exercises:
+    get:
+      summary: Exercise catalog
+      description: Returns a list of all available exercises in the system, with optional filtering by muscle group.
+      parameters:
+        - name: muscleGroup
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Chest, Back, Legs, Shoulders, Arms, Core]
+      responses:
+        '200':
+          description: List retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Exercise'
+
+  /exercises/favorites:
+    get:
+      summary: All favorite exercises
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Favorite exercises returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Exercise'
+    post:
+      summary: Add exercise to favorites
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - exerciseId
+              properties:
+                exerciseId:
+                  type: integer
+                  example: 42
+      responses:
+        '200':
+          description: Exercise added to favorites.
+        '404':
+          description: Exercise not found.
+
+  # --- PROGRESS & RESULTS ---
+  /progress:
+    get:
+      summary: Progress history
+      description: Returns all weight and achievement logs for the user, sorted chronologically.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Data retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProgressLogResponse'
+    post:
+      summary: Log new progress (weight/achievements)
+      description: Adds a new entry for current weight and strength achievements.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressLogInput'
+      responses:
+        '201':
+          description: Log saved successfully.
+
+ # --- SUBSCRIPTIONS & FITNESS CARDS ---
+  /subscriptions/plans:
+    get:
+      summary: List all membership plans
+      description: Returns all available fitness membership offers and subscription plans with their prices and validity.
+      responses:
+        '200':
+          description: Membership plans retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipPlan'
+
+  /subscriptions/buy:
+    post:
+      summary: Purchase a new fitness card
+      description: Allows the user to purchase or renew a subscription card by choosing a specific plan.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - planId
+              properties:
+                planId:
+                  type: integer
+                  description: The ID of the membership plan the user wants to buy.
+                  example: 3
+      responses:
+        '201':
+          description: Card purchased successfully. Returns the newly generated subscription card details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionCard'
+        '400':
+          description: Invalid plan ID or payment failed.
+        '401':
+          description: Unauthorized.
+  /subscriptions/my-card:
+    get:
+      summary: Fitness card information
+      description: Provides information about the current card's activity, expiration date and remaining visits.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Card data found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionCard'
+        '404':
+          description: The user does not have an active subscription card.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # --- Input Validation Schemas ---
+    UserRegisterInput:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john@email.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 30
+          description: Password must be at least 8 characters long.
+          example: "SecurePass123!"
+
+    UserLoginInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "john@email.com"
+        password:
+          type: string
+          example: "SecurePass123!"
+
+    WorkoutPlanInput:
+      type: object
+      required:
+        - title
+        - dayOfWeek
+        - exerciseIds
+      properties:
+        title:
+          type: string
+          minLength: 3
+          example: "Chest and Triceps Workout"
+        dayOfWeek:
+          type: string
+          enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+          example: "Monday"
+        exerciseIds:
+          type: array
+          items:
+            type: integer
+          minItems: 1
+          example: [1, 5, 12]
+
+    ProgressLogInput:
+      type: object
+      required:
+        - weight
+        - loggedAt
+      properties:
+        weight:
+          type: number
+          minimum: 30.0
+          maximum: 250.0
+          description: User's weight in kilograms.
+          example: 78.5
+        benchPressMax:
+          type: number
+          description: Bench press achievement (optional).
+          example: 100.0
+        notes:
+          type: string
+          maxLength: 200
+          example: "Felt full of energy today."
+        loggedAt:
+          type: string
+          format: date
+          example: "2026-05-22"
+
+    MembershipPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 3
+        name:
+          type: string
+          example: "Monthly Unlimited Pass"
+        price:
+          type: number
+          example: 50.00
+        durationDays:
+          type: integer
+          description: How long the card is valid after purchase.
+          example: 30
+        totalVisits:
+          type: integer
+          description: Number of visits allowed. Null or 0 means unlimited.
+          example: 0
+
+    # --- Output Data Models ---
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expiresIn:
+          type: integer
+          description: Token validity time in seconds (e.g., 24 hours).
+          example: 86400
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          example: "john@email.com"
+
+    WorkoutPlanResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        title:
+          type: string
+          example: "Chest and Triceps Workout"
+        dayOfWeek:
+          type: string
+          example: "Monday"
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exercise'
+
+    Exercise:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Barbell Bench Press"
+        muscleGroup:
+          type: string
+          example: "Chest"
+        description:
+          type: string
+          example: "Basic multi-joint exercise for the chest muscles."
+
+    ProgressLogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 501
+        weight:
+          type: number
+          example: 78.5
+        loggedAt:
+          type: string
+          format: date
+          example: "2026-05-22"
+
+    SubscriptionCard:
+      type: object
+      properties:
+        cardId:
+          type: string
+          example: "FIT-99482"
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, SUSPENDED]
+          example: "ACTIVE"
+        plan:
+          $ref: '#/components/schemas/MembershipPlan'
+        validUntil:
+          type: string
+          format: date
+          example: "2026-06-22"
+        remainingVisits:
+          type: integer
+          description: Number of remaining visits (if the card is not unlimited).
+          example: 8
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Data validation error."
